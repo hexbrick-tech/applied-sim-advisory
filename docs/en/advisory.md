@@ -1,4 +1,4 @@
-# Applied SIM for Advisory (Draft 0.5)
+# Applied SIM for Advisory (Draft 0.6)
 
 **ASG Conformance Target:** Applied SIM Standard Guidelines v0.1
 
@@ -19,7 +19,8 @@ Provide third-party AI evaluation of technical investigation results produced by
 | Observation | The original text of enterprise investigation results, AI outputs, or RAG returns, before summarization or evaluation |
 | Interpretation | Reading of what the original text claims or implies, including relationships and comparisons among Observations |
 | Evaluation | Judgment against the purpose or criteria (Gap determination, Opinion, adoption decision) |
-| Undefined | A state in which something has been observed but has not yet undergone Evaluation (Gap determination). It is a transient condition and is not persisted as an Artifact. Evaluation either records it as a Gap or completes processing with no gap identified |
+| Unassigned | A state in which something has been observed but has not yet undergone Evaluation (Gap determination). It is a transient condition and is not persisted as an Artifact. Evaluation results in one of Gap established / No Gap / Undefined |
+| Undefined | An observed element that, even after Evaluation, cannot be placed within the semantic structure based on the current Inquiry Frame. The original Observation remains in the Observation Ledger. It is not grounds for deletion or rejection; it is treated as a directional signal toward a Semantic Probe or review of the Inquiry Frame itself. No dedicated Artifact is maintained |
 | Unknown | A state in which information required for judgment is not included in the inputs |
 | Semantic Boundary | A state in which a topic or position can be handled stably (Established) |
 | Semantic Probe | Additional confirmation requested from the user in a form that elicits observed facts |
@@ -54,6 +55,21 @@ IF-002 (newly created due to a change in Purpose, etc.)
  └ RC-002
 ```
 
+**Evaluation branches within Step 2:**
+
+```
+Observation
+    ↓
+Unassigned
+    ↓
+Evaluation (semantic placement)
+    ├─ Gap established → Create Gap Record
+    ├─ No Gap → No record required (processing complete)
+    └─ Undefined → Semantic Probe or Inquiry Frame review
+```
+
+When an Observation is determined to be Undefined, the judgment history (when, which Observation, and against which Inquiry Frame it was Undefined) is not persisted at this time. A dedicated Artifact may be considered if operational use demonstrates a need to track it.
+
 ## 5. Artifacts
 
 ### 5.1 Inquiry Frame
@@ -87,6 +103,8 @@ IF-002 (newly created due to a change in Purpose, etc.)
 | Captured At | Timestamp |
 | Context | Generation context, or associated Gap ID for RAG-Return |
 
+An Observation determined to be Undefined remains in the Ledger unchanged and is not deleted.
+
 ### 5.4 Gap Record
 
 | Field | Description |
@@ -99,7 +117,7 @@ IF-002 (newly created due to a change in Purpose, etc.)
 | Status | Open / Opinion Issued / Adopted / Rejected / Partially Adopted |
 | Supersedes | Previous Gap ID inherited when revisiting the topic |
 
-The single path to an Inquiry Frame is `Ref Review Cycle → Review Cycle.Ref Inquiry Frame`. A Gap Record does not hold a direct reference to an Inquiry Frame.
+A Gap Record is created only when a Gap is established. No Gap Record is created for Undefined. The single path to an Inquiry Frame is `Ref Review Cycle → Review Cycle.Ref Inquiry Frame`. A Gap Record does not hold a direct reference to an Inquiry Frame.
 
 **Status rules:**
 
@@ -110,7 +128,7 @@ The single path to an Inquiry Frame is `Ref Review Cycle → Review Cycle.Ref In
 ```
 Observation
   ↓
-Undefined (transient condition before Evaluation)
+Unassigned (transient condition before Evaluation)
   ↓
 Evaluation
   ↓
@@ -128,6 +146,8 @@ Gap: Open (established, non-terminal)
 | Used Observations | Observation IDs used as the basis |
 | Includes Model-Derived Content | Yes / No. Yes when the Opinion relies on general knowledge, industry practices, or external information outside the observed scope, beyond paraphrase or Interpretation (including relationships and comparisons) of Used Observations |
 | Supersedes | Previous Opinion ID when revised within the same Gap |
+
+Opinion does not have its own `Basis` field. Its judgment criterion is inherited through `Refers To Gap → Gap.Basis`, while judgment evidence is represented by `Used Observations` / `Includes Model-Derived Content`.
 
 **Supersedes scope:** Supersedes occurs only within the same Gap. Lineage across Gaps is followed through Gap.Supersedes; Opinions do not directly reference one another across Gaps.
 
@@ -156,7 +176,7 @@ This log covers only Gap Supersedes within the same Inquiry Frame. Changes to th
 | Terminal Gaps (this cycle) | Gap IDs that reached a terminal state in this cycle |
 | Open Gaps (cumulative) | All currently Open Gap IDs plus their age (facts only) |
 | Supersedes Chains | Supersedes relationships created in this cycle |
-| Basis Note | Explicitly states the items below |
+| Basis Note | Explicitly states the five items below |
 
 **Basis Note:**
 
@@ -174,16 +194,19 @@ Past SnapshotReports are never overwritten or invalidated; they remain as histor
 - **Treatment of RAG (ASG-B1, O3):** Introduce RAG only from Step 3 onward. Gap determination in Step 2 is based only on the Inquiry Frame and Step 1 inputs, without mixing in RAG. Record each RAG return individually in the Observation Ledger with its source and query; do not merge or summarize returns. Treat RAG as additional observation, not authority.
 - **Derivation of missing perspectives:** In principle, AI derives them each time (Origin: Model-derived). If the user already has a prior understanding of what is missing, treat it as having already been complemented by another AI.
 - **Cycle:** After Step 4 is complete, the next Step 2 begins based on new Observations and existing Gap states. Reevaluation is not forced.
+- **Treatment of Undefined:** Undefined is not a defect; it is a directional signal that the observed element cannot be placed within the semantic structure based on the current Inquiry Frame. It does not necessarily mean the element is outside Scope—an element may be within Scope while still not fitting the existing semantic structure. It is not grounds for automatic rejection or deletion.
 
 ## 7. ASG Requirement Mapping (Excerpt)
 
 | ASG Requirement | Mapping |
 | --- | --- |
 | O1, O2 | Observation Ledger records original text without modification. Evidence is not managed redundantly in Opinion / Snapshot |
-| O3, U2 | Undefined is defined as a transient condition; the existence of an Observation is not treated as establishment of a boundary |
+| O3 | The existence of an observed element is not treated as establishment of a boundary. Undefined arises only as the result of an attempted placement |
 | I1 | Interpretation (relationships and comparisons) is distinguished from Model-Derived Content |
 | N2, N3 | Operational rules prevent AI output and RAG from being confused with “observed evidence.” Model-Derived Content is distinguished from Observation / Interpretation |
-| E1, E2 | Basis is required for Gap Record / Opinion. SnapshotReport introduces no new Evaluation |
+| E1, E2 | Basis is required on Gap Record (Opinion inherits Gap.Basis through `Refers To Gap` and does not hold its own Basis field). SnapshotReport introduces no new Evaluation |
 | U1, U3 | Gap = result of Evaluation; Unknown = absence of material required for judgment |
+| U2, U4 | Unassigned is a transient condition distinct from Unknown; Undefined is, consistently with the Foundation definition, an observed result that “cannot be placed.” The Observation is not erased when it becomes Undefined |
 | B1 | An Open Gap is not treated as unestablished authority; RAG is not treated as authority |
+| B2, B3 | Undefined is not an assertion of missing detail or absent boundary; it arises only as the result of an attempted placement |
 | F1, F3 | Irreversible Gap Status plus new Gap + Supersedes represents reevaluation. The Step 4 → Step 2 cycle concretizes F1 |
