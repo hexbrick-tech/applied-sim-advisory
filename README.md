@@ -29,7 +29,7 @@ It does **not** define how the underlying investigation itself is performed.
 
 ## Domain Definition
 
-The current domain definition is available in [advisory.md](./advisory.md).
+The current domain definition is available in [docs/en/advisory.md](./docs/en/advisory.md).
 
 ## Status
 
